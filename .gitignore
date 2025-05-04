@@ -1,0 +1,14 @@
+# 가상 환경 폴더 제외
+venv/
+
+# PyCharm/VSCode에서 생성되는 파일 제외
+.idea/
+.vscode/
+
+# 파이썬 캐시 파일 제외
+__pycache__/
+*.pyc
+*.pyo
+
+# 환경변수 제외
+#.env

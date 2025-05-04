@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Project Manager Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" />
+  <style>
+    body {
+      overflow-x: hidden;
+    }
+    .project-scroll-container {
+      overflow-x: auto;
+      white-space: nowrap;
+      padding-bottom: 1rem;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      margin-left: 0;
+      padding-left: 0;
+      width: 100%;
+    }
+    .project-scroll-container::-webkit-scrollbar {
+      height: 8px;
+      display: none;
+    }
+    .project-scroll-container:hover::-webkit-scrollbar {
+      display: block;
+    }
+    .project-scroll-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    .project-scroll-container::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+    }
+    .project-scroll-container::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+    .project-card-wrapper {
+      flex: 0 0 auto;
+      width: 300px;
+      display: inline-block;
+      transition: transform 0.2s ease;
+    }
+    .project-card {
+      height: 100%;
+      position: relative;
+      user-select: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid #dee2e6;
+    }
+    .card-body {
+      padding-bottom: 3rem;
+    }
+    .project-card-wrapper.dragging {
+      opacity: 0.3;
+    }
+    .drag-clone {
+      position: fixed;
+      z-index: 1000;
+      pointer-events: none;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      transform: scale(1.05);
+    }
+    .sidebar {
+      width: 250px;
+      height: 100vh;
+      transition: transform 0.3s ease;
+      z-index: 1050;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    .sidebar-closed {
+      transform: translateX(-100%);
+    }
+    .sidebar-open {
+      transform: translateX(0);
+    }
+    .main-content {
+      transition: margin-left 0.3s ease;
+      margin-left: 0;
+    }
+    .sidebar-open ~ .main-content {
+      margin-left: 250px;
+    }
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+      }
+      .sidebar-open ~ .main-content {
+        margin-left: 0;
+        pointer-events: none;
+      }
+      .sidebar-closed ~ .main-content {
+        transform: translateX(0);
+        pointer-events: auto;
+      }
+      .navbar-brand {
+        margin-left: 3rem !important;
+      }
+      .project-scroll-container {
+        padding-left: 0;
+        margin-left: 0;
+      }
+    }
+    .kanban-board {
+      display: flex;
+      padding: 1rem;
+      min-height: 500px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .kanban-column {
+      flex: 0 0 auto;
+      min-width: 300px;
+      max-width: 400px;
+      margin: 0 0.5rem;
+      background: #fff;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      cursor: pointer;
+    }
+    .card-container {
+      min-height: 200px;
+      padding: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    .task-card {
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 6px;
+      padding: 1rem;
+      cursor: move;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+    .task-card.dragging {
+      opacity: 0.5;
+      transform: scale(1.05);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+    }
+    .card-container.drag-over {
+      background-color: rgba(13, 110, 253, 0.2);
+      border: 3px dashed #0d6efd;
+      border-radius: 8px;
+    }
+    .card-placeholder {
+      border: 2px dashed #0d6efd;
+      border-radius: 6px;
+      margin: 0.5rem 0;
+      background-color: rgba(13, 110, 253, 0.05);
+      transition: all 0.2s ease;
+    }
+    .task-card:hover {
+      border: 2px solid #0d6efd;
+      background-color: rgba(13, 110, 253, 0.05);
+      transform: translateY(-4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .project-card:hover {
+      border: 2px solid #0d6efd;
+      background-color: rgba(13, 110, 253, 0.05);
+      transform: translateY(-4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .task-card .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      position: relative;
+      z-index: 1;
+    }
+    .task-card .card-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #212529;
+      transition: color 0.3s ease;
+    }
+    .task-card:hover .card-title {
+      color: #0d6efd;
+    }
+    .task-card .card-description {
+      font-size: 0.9rem;
+      color: #6c757d;
+      margin: 0;
+      position: relative;
+      z-index: 1;
+      transition: color 0.3s ease;
+    }
+    .task-card:hover .card-description {
+      color: #495057;
+    }
+    .delete-card-btn, .edit-card-btn {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.875rem;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      opacity: 0.6;
+      position: relative;
+      z-index: 1;
+    }
+    .delete-card-btn {
+      color: #dc3545;
+    }
+    .edit-card-btn {
+      color: #0d6efd;
+    }
+    .task-card:hover .delete-card-btn, .task-card:hover .edit-card-btn {
+      opacity: 1;
+    }
+    .delete-card-btn:hover {
+      color: #dc3545;
+      background: rgba(220, 53, 69, 0.1);
+      border-radius: 4px;
+      transform: scale(1.1);
+    }
+    .edit-card-btn:hover {
+      color: #0d6efd;
+      background: rgba(13, 110, 253, 0.1);
+      border-radius: 4px;
+      transform: scale(1.1);
+    }
+    .kanban-column:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    .add-card-btn {
+      width: 100%;
+      margin-top: 1rem;
+      margin-bottom: 2.5rem;
+      padding: 0.75rem;
+      border: 2px dashed #dee2e6;
+      background: transparent;
+      color: #6c757d;
+      border-radius: 6px;
+      position: relative;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 5;
+    }
+    .add-card-btn .add-card-content {
+      opacity: 1;
+    }
+    .add-card-btn:hover {
+      border-color: #0d6efd;
+      color: #0d6efd;
+      background: rgba(13, 110, 253, 0.05);
+      transform: translateY(-2px);
+      box-shadow: 0 2px 8px rgba(13, 110, 253, 0.1);
+    }
+    .add-card-btn i {
+      transition: transform 0.3s ease;
+    }
+    .add-card-btn:hover i {
+      transform: scale(1.2);
+    }
+    .invite-member, .delete-project, .leave-project {
+      bottom: 0.5rem;
+      z-index: 10;
+    }
+    .card-text.truncate-description {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      transition: all 0.3s ease;
+    }
+    .member-count {
+      font-size: 0.9rem;
+      color: #6c757d;
+      margin-top: 0.5rem;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+<!-- Sidebar -->
+<div id="sidebarMenu" class="bg-light position-fixed p-3 shadow sidebar sidebar-closed">
+  <button class="btn btn-outline-dark position-fixed top-0 start-0 m-2" id="menuClose" style="z-index: 1100;">
+    <i class="bi bi-x-lg"></i>
+  </button>
+  <ul class="list-group mt-5">
+    <li class="list-group-item"><a href="#" class="text-decoration-none text-dark">Account Settings</a></li>
+    <li class="list-group-item">
+      <a href="#" class="text-decoration-none text-dark" id="toggleInvitations">
+        Invitations <i class="bi bi-chevron-down float-end"></i>
+      </a>
+      <ul id="invitationList" class="list-group mt-2" style="display: none;"></ul>
+    </li>
+    <li class="list-group-item"><a href="{{ url_for('logout') }}" class="text-decoration-none text-dark">Logout</a></li>
+  </ul>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid position-relative">
+      <button class="btn btn-outline-light position-fixed top-0 start-0 m-2" id="menuToggle" style="z-index: 1100;">
+        <i class="bi bi-list"></i>
+      </button>
+      <a class="navbar-brand ms-5" href="#">Project Manager</a>
+      <div class="navbar-nav ms-auto">
+        <span class="nav-item nav-link text-light">Welcome, {{ user.username }}</span>
+        <a class="nav-item nav-link" href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- My Projects Section -->
+  <div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2>My Projects</h2>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+        <i class="bi bi-plus-lg"></i> New Project
+      </button>
+    </div>
+    <div class="project-scroll-container d-flex flex-nowrap overflow-auto gap-3 py-2">
+      {% for project in projects %}
+      <div class="project-card-wrapper" data-project-id="{{ project._id }}">
+        <div class="card project-card h-100 position-relative">
+          <div class="card-body">
+            <h5 class="card-title">{{ project.name }}</h5>
+            <p class="card-text truncate-description">{{ project.description }}</p>
+            <div class="card-container mt-3" data-project-id="{{ project._id }}"></div>
+            <span class="member-count">{{ project.members|length }} members</span>
+            <button class="btn add-card-btn mt-2 w-100" data-status="todo" data-project-id="{{ project._id }}">
+              <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
+            </button>
+            <button class="btn btn-sm btn-outline-primary invite-member position-absolute start-0 bottom-0 m-2" data-project-id="{{ project._id }}">
+              <i class="bi bi-person-plus"></i> Invite
+            </button>
+            {% if project.owner == user._id %}
+              <button class="btn btn-sm btn-outline-danger delete-project position-absolute end-0 bottom-0 m-2" data-project-id="{{ project._id }}">
+                <i class="bi bi-trash"></i> Delete
+              </button>
+            {% else %}
+              <button class="btn btn-sm btn-outline-secondary leave-project position-absolute end-0 bottom-0 m-2" data-project-id="{{ project._id }}">
+                <i class="bi bi-box-arrow-left"></i> Leave
+              </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- New Project Modal -->
+<div class="modal fade" id="newProjectModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Create New Project</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="newProjectForm">
+          <div class="mb-3">
+            <label class="form-label">Project Name</label>
+            <input type="text" class="form-control" name="name" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="createProject">Create Project</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Invite Member Modal -->
+<div class="modal fade" id="inviteMemberModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Invite Team Member</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="inviteMemberForm">
+          <input type="hidden" id="inviteProjectId" />
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" class="form-control" name="username" required />
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="sendInvite">Send Invite</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Project Board Modal -->
+<div class="modal fade" id="projectBoardModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="projectBoardTitle">프로젝트 보드</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <button class="btn btn-secondary mb-3" id="backToAllProjects" style="display: none;">
+          <i class="bi bi-arrow-left"></i> Back to All Projects
+        </button>
+        <div class="kanban-board">
+          {% for project in projects %}
+          <div class="kanban-column" data-project-id="{{ project._id }}">
+            <h5>{{ project.name }}</h5>
+            <div id="todo-column-{{ project._id }}" class="card-container" data-project-id="{{ project._id }}"></div>
+            <button class="btn add-card-btn" data-status="todo" data-project-id="{{ project._id }}">
+              <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
+            </button>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Card Modal -->
+<div class="modal fade" id="createCardModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Create New Card</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="createCardForm">
+          <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input type="text" class="form-control" name="title" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="createCard">Create Card</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Card Modal -->
+<div class="modal fade" id="editCardModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">카드 수정</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editCardForm">
+          <input type="hidden" id="editCardId" />
+          <div class="mb-3">
+            <label class="form-label">제목</label>
+            <input type="text" class="form-control" name="title" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">내용</label>
+            <textarea class="form-control" name="description" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+        <button type="button" class="btn btn-primary" id="updateCard">수정</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// 전역 변수 선언
+let currentProjectId = null;
+let dragged = null;
+let dragClone = null;
+let dragTimer = null;
+let isDragging = false;
+let wasDragging = false;
+let startX = 0;
+let startY = 0;
+let scrollAnimationFrame = null;
+let draggedCard = null;
+let placeholder = null;
+let selectedProjectId = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  const sidebar = document.getElementById("sidebarMenu");
+  const toggleButton = document.getElementById("menuToggle");
+  const closeButton = document.getElementById("menuClose");
+  const invitationToggle = document.getElementById("toggleInvitations");
+  const invitationList = document.getElementById("invitationList");
+  const container = document.querySelector(".project-scroll-container");
+  const backButton = document.getElementById("backToAllProjects");
+
+  // 마우스 휠로 가로 스크롤
+  container.addEventListener("wheel", e => {
+    if (!isDragging) {
+      e.preventDefault();
+      container.scrollLeft += e.deltaY * 0.5;
+    }
+  });
+
+  // 칸반 보드 가로 스크롤
+  const kanbanBoard = document.querySelector(".kanban-board");
+  kanbanBoard.addEventListener("wheel", e => {
+    if (!isDragging) {
+      e.preventDefault();
+      kanbanBoard.scrollLeft += e.deltaY * 0.5;
+    }
+  });
+
+  // 프로젝트 순서 로컬 저장소에서 로드
+  function loadProjectOrder() {
+    const savedOrder = localStorage.getItem("projectOrder");
+    if (savedOrder) {
+      const order = JSON.parse(savedOrder);
+      const idToElement = {};
+      container.querySelectorAll(".project-card-wrapper").forEach(card => {
+        const id = card.getAttribute("data-project-id");
+        idToElement[id] = card;
+      });
+
+      order.forEach(id => {
+        if (idToElement[id]) {
+          container.appendChild(idToElement[id]);
+        }
+      });
+    }
+  }
+
+  // 프로젝트 순서 저장
+  function saveProjectOrder() {
+    const order = Array.from(container.querySelectorAll(".project-card-wrapper"))
+      .map(card => card.getAttribute("data-project-id"));
+    localStorage.setItem("projectOrder", JSON.stringify(order));
+  }
+
+  // 프로젝트 드래그 및 터치 설정
+  function enableDragAndTouch() {
+    const cards = container.querySelectorAll(".project-card-wrapper");
+
+    cards.forEach(card => {
+      card.addEventListener("mousedown", e => {
+        if (e.target.closest('.task-card')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        startX = e.clientX;
+        startY = e.clientY;
+
+        dragTimer = setTimeout(() => {
+          startDrag(card, e.clientX, e.clientY);
+        }, 200);
+      });
+
+      card.addEventListener("mousemove", e => {
+        if (isDragging && dragged) {
+          e.preventDefault();
+          handleDrag(e.clientX, e.clientY);
+        }
+      });
+
+      card.addEventListener("mouseup", () => {
+        clearTimeout(dragTimer);
+        if (isDragging) {
+          endDrag();
+        }
+      });
+
+      card.addEventListener("mouseleave", () => {
+        clearTimeout(dragTimer);
+      });
+
+      card.addEventListener("touchstart", e => {
+        if (e.target.closest('.task-card')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+
+        dragTimer = setTimeout(() => {
+          startDrag(card, touch.clientX, touch.clientY);
+        }, 300);
+      });
+
+      card.addEventListener("touchmove", e => {
+        if (isDragging && dragged) {
+          e.preventDefault();
+          const touch = e.touches[0];
+          handleDrag(touch.clientX, touch.clientY);
+        }
+      });
+
+      card.addEventListener("touchend", () => {
+        clearTimeout(dragTimer);
+        if (isDragging) {
+          endDrag();
+        }
+      });
+    });
+
+    function startDrag(card, x, y) {
+      if (isDragging) return;
+      isDragging = true;
+      wasDragging = true;
+      dragged = card;
+
+      card.classList.add("dragging");
+
+      dragClone = card.cloneNode(true);
+      dragClone.classList.add("drag-clone");
+      dragClone.style.width = `${card.offsetWidth}px`;
+      dragClone.style.height = `${card.offsetHeight}px`;
+      dragClone.style.left = `${x - card.offsetWidth / 2}px`;
+      dragClone.style.top = `${y - card.offsetHeight / 2}px`;
+      document.body.appendChild(dragClone);
+    }
+
+    function handleDrag(x, y) {
+      if (!dragClone || !dragged) return;
+
+      dragClone.style.left = `${x - dragged.offsetWidth / 2}px`;
+      dragClone.style.top = `${y - dragged.offsetHeight / 2}px`;
+
+      const containerRect = container.getBoundingClientRect();
+      const scrollSpeed = 20;
+      const edgeThreshold = 50;
+
+      if (scrollAnimationFrame) {
+        cancelAnimationFrame(scrollAnimationFrame);
+      }
+
+      function scrollStep() {
+        if (!isDragging) return;
+
+        if (x < containerRect.left + edgeThreshold) {
+          container.scrollLeft -= scrollSpeed;
+        } else if (x > containerRect.right - edgeThreshold) {
+          container.scrollLeft += scrollSpeed;
+        }
+
+        const target = document.elementFromPoint(x, y);
+        const targetCard = target?.closest(".project-card-wrapper");
+        if (targetCard && targetCard !== dragged && !targetCard.classList.contains("drag-clone")) {
+          const cardRect = targetCard.getBoundingClientRect();
+          const insertBeforeTarget = x < cardRect.left + cardRect.width / 2;
+
+          if (insertBeforeTarget) {
+            container.insertBefore(dragged, targetCard);
+          } else {
+            if (targetCard.nextSibling) {
+              container.insertBefore(dragged, targetCard.nextSibling);
+            } else {
+              container.appendChild(dragged);
+            }
+          }
+        }
+
+        if (isDragging) {
+          scrollAnimationFrame = requestAnimationFrame(scrollStep);
+        }
+      }
+
+      scrollAnimationFrame = requestAnimationFrame(scrollStep);
+    }
+
+    function endDrag() {
+      if (!isDragging || !dragged) return;
+      isDragging = false;
+
+      dragged.classList.remove("dragging");
+
+      if (dragClone) {
+        dragClone.remove();
+        dragClone = null;
+      }
+
+      saveProjectOrder();
+      dragged = null;
+
+      if (scrollAnimationFrame) {
+        cancelAnimationFrame(scrollAnimationFrame);
+        scrollAnimationFrame = null;
+      }
+
+      setTimeout(() => {
+        wasDragging = false;
+      }, 100);
+    }
+  }
+
+  // 사이드바 토글
+  function toggleSidebar() {
+    sidebar.classList.toggle("sidebar-closed");
+    sidebar.classList.toggle("sidebar-open");
+    toggleButton.style.display = sidebar.classList.contains("sidebar-open") ? "none" : "block";
+    closeButton.style.display = sidebar.classList.contains("sidebar-open") ? "block" : "none";
+  }
+
+  toggleButton.addEventListener("click", toggleSidebar);
+  closeButton.addEventListener("click", toggleSidebar);
+
+  invitationToggle.addEventListener("click", e => {
+    e.preventDefault();
+    invitationList.style.display = invitationList.style.display === "none" ? "block" : "none";
+  });
+
+  // 초대 목록 가져오기
+  async function fetchInvitations() {
+    try {
+      const res = await fetch("/invitations");
+      const data = await res.json();
+      if (data.invitations.length === 0) {
+        invitationList.innerHTML = `<li class="list-group-item text-muted">No invitations</li>`;
+      } else {
+        data.invitations.forEach(invite => {
+          const li = document.createElement("li");
+          li.className = "list-group-item d-flex justify-content-between align-items-center";
+          li.innerHTML = `
+            ${invite.name}
+            <span>
+              <button class="btn btn-sm btn-success me-1" onclick="respondInvitation('${invite.id}', 'accept')">Accept</button>
+              <button class="btn btn-sm btn-danger" onclick="respondInvitation('${invite.id}', 'decline')">Decline</button>
+            </span>
+          `;
+          invitationList.appendChild(li);
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch invitations:", err);
+      invitationList.innerHTML = `<li class="list-group-item text-danger">Error loading invitations</li>`;
+    }
+  }
+
+  fetchInvitations();
+
+  // 프로젝트 생성
+  document.getElementById("createProject").addEventListener("click", async () => {
+    const form = document.getElementById("newProjectForm");
+    const formData = new FormData(form);
+    const data = {
+      name: formData.get("name"),
+      description: formData.get("description")
+    };
+    try {
+      const response = await fetch("/projects/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (response.ok) {
+        alert("프로젝트가 생성되었습니다!");
+        bootstrap.Modal.getInstance(document.getElementById("newProjectModal")).hide();
+        form.reset();
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert(error.message || "프로젝트 생성 실패");
+      }
+    } catch (err) {
+      console.error("Create project error:", err);
+      alert("오류가 발생했습니다.");
+    }
+  });
+
+  // 초대 보내기
+  document.getElementById("sendInvite").addEventListener("click", async () => {
+    const form = document.getElementById("inviteMemberForm");
+    const formData = new FormData(form);
+    const projectId = document.getElementById("inviteProjectId").value;
+    const data = {
+      username: formData.get("username")
+    };
+    try {
+      const response = await fetch(`/projects/${projectId}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (response.ok) {
+        alert("초대가 전송되었습니다.");
+        bootstrap.Modal.getInstance(document.getElementById("inviteMemberModal")).hide();
+        form.reset();
+      } else {
+        const error = await response.json();
+        alert(error.message || "초대 전송 실패");
+      }
+    } catch (error) {
+      console.error("Error sending invite:", error);
+      alert("오류가 발생했습니다.");
+    }
+  });
+
+  // 프로젝트 삭제
+  document.querySelectorAll(".delete-project").forEach(button => {
+    button.addEventListener("click", async e => {
+      e.stopPropagation();
+      if (confirm("이 프로젝트를 삭제하시겠습니까?")) {
+        const projectId = button.dataset.projectId;
+        try {
+          const response = await fetch(`/projects/${projectId}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" }
+          });
+          if (response.ok) window.location.reload();
+          else {
+            const error = await response.json();
+            alert(error.message || "프로젝트 삭제 실패");
+          }
+        } catch (error) {
+          console.error("Error deleting project:", error);
+          alert("오류가 발생했습니다.");
+        }
+      }
+    });
+  });
+
+  // 프로젝트 나가기
+  document.querySelectorAll(".leave-project").forEach(button => {
+    button.addEventListener("click", async e => {
+      e.stopPropagation();
+      if (confirm("이 프로젝트에서 나가시겠습니까?")) {
+        const projectId = button.dataset.projectId;
+        try {
+          const response = await fetch(`/projects/${projectId}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" }
+          });
+          if (response.ok) window.location.reload();
+          else {
+            const error = await response.json();
+            alert(error.message || "프로젝트 나가기 실패");
+          }
+        } catch (error) {
+          console.error("Error leaving project:", error);
+          alert("오류가 발생했습니다.");
+        }
+      }
+    });
+  });
+
+  // 초대 모달 열기
+  document.querySelectorAll(".invite-member").forEach(button => {
+    button.addEventListener("click", e => {
+      e.stopPropagation();
+      const projectId = button.dataset.projectId;
+      document.getElementById("inviteProjectId").value = projectId;
+      new bootstrap.Modal(document.getElementById("inviteMemberModal")).show();
+    });
+  });
+
+  // 프로젝트 카드 클릭
+  document.querySelectorAll(".project-card").forEach(card => {
+    card.addEventListener("click", e => {
+      if (wasDragging) return;
+      const wrapper = card.closest(".project-card-wrapper");
+      if (wrapper.classList.contains("dragging")) {
+        e.preventDefault();
+        return;
+      }
+      const projectId = wrapper.dataset.projectId;
+      openProject(projectId);
+    });
+  });
+
+  // 프로젝트 보드 열기
+  function openProject(projectId) {
+    currentProjectId = projectId;
+    const projectCard = document.querySelector(`.project-card-wrapper[data-project-id="${projectId}"]`);
+    const projectName = projectCard.querySelector('.card-title').textContent;
+    document.getElementById('projectBoardTitle').textContent = projectName;
+    const modal = new bootstrap.Modal(document.getElementById('projectBoardModal'));
+    modal.show();
+    loadCards();
+    enableCardDragAndDrop();
+    enableKanbanColumnClick();
+  }
+
+  // 칸반 컬럼 클릭 이벤트
+  function enableKanbanColumnClick() {
+    document.querySelectorAll('.kanban-column').forEach(column => {
+      column.addEventListener('click', e => {
+        e.stopPropagation();
+        const projectId = column.dataset.projectId;
+        showSingleProject(projectId);
+      });
+    });
+  }
+
+  // 단일 프로젝트 표시
+  function showSingleProject(projectId) {
+    selectedProjectId = projectId;
+    document.querySelectorAll('.kanban-column').forEach(column => {
+      if (column.dataset.projectId === projectId) {
+        column.style.display = 'block';
+      } else {
+        column.style.display = 'none';
+      }
+    });
+    backButton.style.display = 'block';
+    loadCards();
+  }
+
+  // 모든 프로젝트로 돌아가기
+  backButton.addEventListener('click', () => {
+    selectedProjectId = null;
+    document.querySelectorAll('.kanban-column').forEach(column => {
+      column.style.display = 'block';
+    });
+    backButton.style.display = 'none';
+    loadCards();
+  });
+
+  // 카드 로드
+  async function loadCards() {
+    try {
+      const response = await fetch(`/projects/all/cards`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log('Fetched cards:', data.cards);
+
+      // 모든 card-container 초기화
+      document.querySelectorAll('.card-container').forEach(container => {
+        container.innerHTML = '';
+      });
+
+      // 프로젝트별 카드 그룹화
+      const projectCards = {};
+      data.cards.forEach(card => {
+        const pid = card.project_id;
+        if (!projectCards[pid]) projectCards[pid] = [];
+        projectCards[pid].push(card);
+      });
+
+      // 각 프로젝트의 카드 정렬 및 렌더링
+      for (const [projectId, cards] of Object.entries(projectCards)) {
+        cards.sort((a, b) => a.order - b.order);
+        const container = document.querySelector(`.card-container[data-project-id="${projectId}"]`);
+        if (!container) {
+          console.warn(`Container for project ${projectId} not found`);
+          continue;
+        }
+
+        if (selectedProjectId && projectId !== selectedProjectId) continue;
+
+        cards.forEach(card => {
+          const cardElement = createCardElement(card);
+          container.appendChild(cardElement);
+          console.log(`Rendered card ${card.id} for project ${projectId}`);
+        });
+      }
+    } catch (error) {
+      console.error('Error loading cards:', error);
+      alert('카드 로드 중 오류가 발생했습니다.');
+    }
+  }
+
+  // 카드 요소 생성
+  function createCardElement(card) {
+    const div = document.createElement('div');
+    div.className = 'task-card';
+    div.setAttribute('data-card-id', card.id);
+    div.setAttribute('data-project-id', card.project_id);
+    div.setAttribute('draggable', 'true');
+    div.innerHTML = `
+      <div class="card-header">
+        <h6 class="card-title">${card.title}</h6>
+        <div>
+          <button class="btn btn-sm edit-card-btn me-1" data-card-id="${card.id}">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-sm delete-card-btn" data-card-id="${card.id}">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+      <p class="card-description">${card.description || ''}</p>
+    `;
+
+    div.querySelector('.edit-card-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      showEditCardModal(card);
+    });
+
+    div.querySelector('.delete-card-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteCard(card.id, card.project_id);
+    });
+
+    div.addEventListener('dragstart', handleCardDragStart);
+    div.addEventListener('dragend', handleCardDragEnd);
+
+    return div;
+  }
+
+  // 드래그 앤 드롭 이벤트 핸들러
+  function handleCardDragStart(e) {
+    e.stopPropagation();
+    draggedCard = e.target;
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', e.target.dataset.cardId);
+    e.dataTransfer.effectAllowed = 'move';
+
+    placeholder = document.createElement('div');
+    placeholder.className = 'card-placeholder';
+    placeholder.style.height = `${draggedCard.offsetHeight}px`;
+    setTimeout(() => {
+      draggedCard.style.display = 'none';
+    }, 0);
+  }
+
+  function handleCardDragEnd(e) {
+    e.stopPropagation();
+    if (draggedCard) {
+      draggedCard.classList.remove('dragging');
+      draggedCard.style.display = 'block';
+    }
+    if (placeholder) {
+      placeholder.remove();
+      placeholder = null;
+    }
+    document.querySelectorAll('.card-container').forEach(container => {
+      container.classList.remove('drag-over');
+    });
+    draggedCard = null; // 초기화는 모든 작업 완료 후
+  }
+
+  function enableCardDragAndDrop() {
+    const containers = document.querySelectorAll('.card-container');
+    containers.forEach(container => {
+      container.addEventListener('dragover', handleCardDragOver);
+      container.addEventListener('dragenter', handleCardDragEnter);
+      container.addEventListener('dragleave', handleCardDragLeave);
+      container.addEventListener('drop', handleCardDrop);
+    });
+  }
+
+  function handleCardDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }
+
+  function handleCardDragEnter(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const container = e.target.closest('.card-container');
+    if (container && draggedCard) {
+      container.classList.add('drag-over');
+
+      const cards = [...container.querySelectorAll('.task-card:not(.dragging)')];
+      const dropY = e.clientY;
+      const closestCard = cards.reduce((closest, card) => {
+        const box = card.getBoundingClientRect();
+        const offset = dropY - (box.top + box.height / 2);
+        if (offset < 0 && offset > closest.offset) {
+          return { offset, element: card };
+        }
+        return closest;
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+
+      if (placeholder && placeholder.parentNode) {
+        placeholder.parentNode.removeChild(placeholder);
+      }
+
+      if (closestCard) {
+        container.insertBefore(placeholder, closestCard);
+      } else {
+        container.appendChild(placeholder);
+      }
+    }
+  }
+
+  function handleCardDragLeave(e) {
+    e.stopPropagation();
+    const container = e.target.closest('.card-container');
+    if (container) {
+      container.classList.remove('drag-over');
+    }
+  }
+
+  async function handleCardDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const container = e.target.closest('.card-container');
+    if (!container || !draggedCard) {
+      console.error('Drop failed: container or draggedCard is null');
+      if (draggedCard) {
+        draggedCard.style.display = 'block';
+      }
+      if (placeholder) {
+        placeholder.remove();
+        placeholder = null;
+      }
+      return;
+    }
+
+    container.classList.remove('drag-over');
+    const cardId = e.dataTransfer.getData('text/plain');
+    const targetProjectId = container.dataset.projectId;
+
+    if (placeholder && placeholder.parentNode === container) {
+      container.replaceChild(draggedCard, placeholder);
+    } else {
+      container.appendChild(draggedCard);
+    }
+
+    draggedCard.style.display = 'block';
+    if (placeholder) {
+      placeholder.remove();
+      placeholder = null;
+    }
+
+    console.log(`Dropping card ${cardId} to project ${targetProjectId}`);
+    await updateCardProjectAndOrder(cardId, targetProjectId, container);
+  }
+
+  async function updateCardProjectAndOrder(cardId, targetProjectId, container) {
+    const cards = [...container.querySelectorAll('.task-card')];
+    const order = cards.map(card => card.dataset.cardId);
+    console.log(`Updating card ${cardId} to project ${targetProjectId} with order:`, order);
+
+    try {
+      // 카드 순서 업데이트
+      const reorderResponse = await fetch(`/projects/${targetProjectId}/cards/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order })
+      });
+      console.log('Reorder response:', { status: reorderResponse.status, body: await reorderResponse.text() });
+
+      if (!reorderResponse.ok) {
+        let error;
+        try {
+          error = await reorderResponse.json();
+        } catch {
+          error = { message: '서버 응답을 파싱할 수 없습니다.' };
+        }
+        console.error('카드 순서 업데이트 실패:', error);
+        alert(error.message || '카드 순서 업데이트에 실패했습니다.');
+        return;
+      }
+
+      // 프로젝트 이동
+      const sourceProjectId = draggedCard ? draggedCard.dataset.projectId : null;
+      if (sourceProjectId && sourceProjectId !== targetProjectId) {
+        const moveResponse = await fetch(`/projects/${targetProjectId}/cards/move`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cardId,
+            projectId: targetProjectId,
+            order
+          })
+        });
+        console.log('Move response:', { status: moveResponse.status, body: await moveResponse.text() });
+
+        if (!moveResponse.ok) {
+          let error;
+          try {
+            error = await moveResponse.json();
+          } catch {
+            error = { message: '서버 응답을 파싱할 수 없습니다.' };
+          }
+          console.error('카드 이동 실패:', error);
+          alert(error.message || '카드 이동에 실패했습니다.');
+          return;
+        }
+      }
+
+      console.log(`Card ${cardId} successfully moved to project ${targetProjectId}`);
+      await loadCards();
+    } catch (error) {
+      console.error('Error updating card:', error);
+      alert('카드 이동/순서 업데이트 중 오류가 발생했습니다: ' + error.message);
+    }
+  }
+
+  // 카드 추가 버튼 이벤트
+  document.querySelectorAll('.add-card-btn').forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.stopPropagation();
+      currentProjectId = button.dataset.projectId;
+      console.log('Opening add card modal for project:', currentProjectId);
+      showAddCardModal();
+    });
+  });
+
+  // 카드 생성
+  document.getElementById('createCard').addEventListener('click', async () => {
+    const form = document.getElementById('createCardForm');
+    const formData = new FormData(form);
+    const data = {
+      title: formData.get('title'),
+      description: formData.get('description') || '',
+      status: 'todo'
+    };
+
+    console.log('Creating card for project:', currentProjectId, 'with data:', data);
+
+    try {
+      const response = await fetch(`/projects/${currentProjectId}/cards`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      const responseData = await response.json();
+      console.log('Card creation response:', responseData);
+
+      if (response.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('createCardModal')).hide();
+        form.reset();
+        loadCards();
+      } else {
+        console.error('Card creation failed:', responseData);
+        alert(responseData.message || '카드 생성에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Error creating card:', error);
+      alert('카드 생성 중 오류가 발생했습니다.');
+    }
+  });
+
+  // 카드 삭제
+  function deleteCard(cardId, projectId) {
+    if (!confirm('카드를 삭제하시겠습니까?')) return;
+
+    fetch(`/projects/${projectId}/cards/${cardId}`, {
+      method: 'DELETE'
+    })
+    .then(response => {
+      if (response.ok) {
+        loadCards();
+      } else {
+        console.error('Card deletion failed:', response.statusText);
+        alert('카드 삭제에 실패했습니다.');
+      }
+    })
+    .catch(error => {
+      console.error('Error deleting card:', error);
+      alert('카드 삭제 중 오류가 발생했습니다.');
+    });
+  }
+
+  // 카드 수정 모달
+  function showEditCardModal(card) {
+    const modal = document.getElementById('editCardModal');
+    const form = document.getElementById('editCardForm');
+    const cardIdInput = document.getElementById('editCardId');
+    
+    cardIdInput.value = card.id;
+    form.querySelector('[name="title"]').value = card.title;
+    form.querySelector('[name="description"]').value = card.description || '';
+    currentProjectId = card.project_id;
+    
+    new bootstrap.Modal(modal).show();
+  }
+
+  // 카드 수정
+  document.getElementById('updateCard').addEventListener('click', async () => {
+    const form = document.getElementById('editCardForm');
+    const cardId = document.getElementById('editCardId').value;
+    const formData = new FormData(form);
+    
+    const data = {
+      title: formData.get('title'),
+      description: formData.get('description') || ''
+    };
+
+    try {
+      const response = await fetch(`/projects/${currentProjectId}/cards/${cardId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('editCardModal')).hide();
+        loadCards();
+      } else {
+        console.error('Card update failed:', await response.text());
+        alert('카드 수정에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Error updating card:', error);
+      alert('카드 수정 중 오류가 발생했습니다.');
+    }
+  });
+
+  // 초대 응답
+  async function respondInvitation(projectId, action) {
+    if (action === "decline" && !confirm("이 초대를 거절하시겠습니까?")) return;
+    try {
+      const res = await fetch("/invitations/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId, action })
+      });
+      if (res.ok) {
+        alert(`${action} 완료`);
+        window.location.reload();
+      } else {
+        const error = await res.json();
+        alert(error.message || "처리 실패");
+      }
+    } catch (err) {
+      console.error('Error responding to invitation:', err);
+      alert("요청 실패");
+    }
+  }
+
+  function showAddCardModal() {
+    const modal = new bootstrap.Modal(document.getElementById('createCardModal'));
+    modal.show();
+  }
+
+  // 초기화
+  loadProjectOrder();
+  enableDragAndTouch();
+  loadCards();
+  enableCardDragAndDrop();
+});
+</script>
+</body>
+</html>
