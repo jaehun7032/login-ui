@@ -22,13 +22,18 @@
             text-align: center;
             margin-bottom: 20px;
         }
+        #password-error {
+            color: red;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
 
 <div class="form-container">
     <h2>회원가입</h2>
-    <form action="{{ url_for('register') }}" method="POST">
+    <form action="{{ url_for('register') }}" method="POST" onsubmit="return validateBeforeSubmit()">
         <div class="form-group">
             <label for="username">사용자 이름</label>
             <input type="text" class="form-control" id="username" name="username" required>
@@ -40,11 +45,43 @@
         <div class="form-group">
             <label for="password">비밀번호</label>
             <input type="password" class="form-control" id="password" name="password" required>
+            <div id="password-error"></div>
         </div>
         <button type="submit" class="btn btn-primary btn-block">회원가입</button>
     </form>
     <p class="mt-3 text-center">이미 계정이 있으신가요? <a href="{{ url_for('login') }}">로그인</a></p>
 </div>
+
+<script>
+    const passwordInput = document.getElementById('password');
+    const errorDiv = document.getElementById('password-error');
+
+    function validatePassword(value) {
+        const specialCharRegex = /[!@#$%^&*(),.?":{}|<>]/;
+        if (value.length < 8 || !specialCharRegex.test(value)) {
+            return false;
+        }
+        return true;
+    }
+
+    passwordInput.addEventListener('input', () => {
+        const value = passwordInput.value;
+        if (!validatePassword(value)) {
+            errorDiv.textContent = "비밀번호는 특수문자 포함 8자 이상이어야 합니다.";
+        } else {
+            errorDiv.textContent = "";
+        }
+    });
+
+    function validateBeforeSubmit() {
+        const value = passwordInput.value;
+        if (!validatePassword(value)) {
+            errorDiv.textContent = "비밀번호는 특수문자 포함 8자 이상이어야 합니다.";
+            return false;
+        }
+        return true;
+    }
+</script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
 </body>
